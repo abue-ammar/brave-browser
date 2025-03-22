@@ -1,0 +1,49 @@
+name: Build Brave Browser APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set Up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip git wget unzip
+          sudo pip3 install --upgrade pip
+          sudo pip3 install depot_tools
+
+      - name: Fetch Brave Browser Source
+        run: |
+          git clone https://github.com/brave/brave-browser.git src/brave
+          cd src/brave
+          git checkout master
+          cd ../..
+          gclient sync --no-history
+
+      - name: Build APK
+        run: |
+          cd src/brave
+          npm install
+          cd ../../
+          gn gen out/Default --args='target_os="android" target_cpu="arm64" is_debug=false'
+          ninja -C out/Default chrome_public_apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v2
+        with:
+          name: BraveBrowser-arm64.apk
+          path: src/out/Default/apks/BraveBrowser.apk
+          
