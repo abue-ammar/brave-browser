@@ -19,12 +19,6 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-
     - name: Install core dependencies
       run: |
         sudo apt-get update
@@ -32,25 +26,23 @@ jobs:
           build-essential \
           git \
           python3 \
-          python3-venv \
           python3-pip \
+          python3-venv \
           lsb-release \
           curl \
           unzip
-        
-        # Set up Python tools
-        python3 -m ensurepip --upgrade
-        python3 -m pip install --upgrade pip setuptools wheel
+
+        # Create and use virtual environment
+        python3 -m venv .venv
+        source .venv/bin/activate
+        python -m pip install --upgrade pip setuptools wheel
 
     - name: Install Chromium build dependencies
       run: |
+        source .venv/bin/activate
         yes | sudo ./src/build/install-build-deps.sh --android --arm --unsupported
       env:
         CHROME_DEVEL_SANDBOX: /usr/local/sbin/chrome-devel-sandbox
-        
-    - name: Install Chromium build dependencies
-      run: |
-        yes | sudo ./src/build/install-build-deps.sh --android --arm
 
     - name: Set up Android SDK/NDK
       uses: android-actions/setup-android@v3
