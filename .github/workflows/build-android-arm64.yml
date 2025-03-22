@@ -1,54 +1,84 @@
 name: Build and Release Brave Android ARM64
 
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - master
+
+env:
+  NODE_VERSION: 20 # Matches package.json engines requirement
+  ANDROID_SDK_TOOLS_VERSION: 9477386 # Latest stable version
+  ANDROID_NDK_VERSION: 25.2.9519653
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # Increase timeout if needed (max 6h for GitHub Free)
+    timeout-minutes: 360 # May need to increase based on build time
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'  # Check Brave's required Node.js version
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
 
-    # Install system dependencies (adjust based on Brave's requirements)
-    - name: Install build dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3 python3-pip ninja-build pkg-config
+        sudo apt-get install -y \
+          python3 \
+          python3-pip \
+          ninja-build \
+          pkg-config \
+          clang \
+          libc++-dev \
+          libc++abi-dev \
+          libncurses5 \
+          libssl-dev
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        ndk-version: ${{ env.ANDROID_NDK_VERSION }}
+        sdk-platform: android-34
+        cmake-version: 3.22.1
 
     - name: npm install
       run: npm install
+      working-directory: ./src/brave
 
     - name: Configure Android ARM64 build
       run: |
         npm config set target_os android
         npm config set target_arch arm64
+      working-directory: ./src/brave
 
-    # Initialize the build environment (downloads Chromium)
-    - name: Initialize build
-      run: npm run init
+    - name: Initialize build environment
+      run: npm run init -- --target_os=android --target_arch=arm64
+      working-directory: ./src/brave
+      env:
+        DEPOT_TOOLS_WIN_TOOLCHAIN: 0
 
-    # Build Release APK
-    - name: Build Release
-      run: npm run build Release
+    - name: Run Release build
+      run: npm run build -- Release
+      working-directory: ./src/brave
+      env:
+        ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
-    # Find the generated APK (adjust path if different)
-    - name: Locate APK
+    - name: Find APK artifact
       id: find-apk
       run: |
-        APK_PATH=$(find ./out/android_arm64/Release -name "*.apk" -print -quit)
+        APK_PATH=$(find ./out/android_arm64/Release/apks -name "Brave*.apk" -print -quit)
         echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
-        echo "APK found at: $APK_PATH"
+        echo "Found APK at: $APK_PATH"
+      working-directory: ./src/brave
 
-    # Upload to GitHub Release
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
       if: ${{ github.event_name == 'release' }}
