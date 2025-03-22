@@ -1,42 +1,57 @@
-name: Build Brave Browser APK
+name: Build and Release Brave Android ARM64
 
 on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+  release:
+    types: [created]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 360  # Increase timeout if needed (max 6h for GitHub Free)
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set Up JDK 11
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: '11'
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'  # Check Brave's required Node.js version
 
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip git wget unzip build-essential
-          sudo pip3 install --upgrade pip
-          sudo pip3 install setuptools
+    # Install system dependencies (adjust based on Brave's requirements)
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3 python3-pip ninja-build pkg-config
 
-      - name: Initialize Brave Environment
-        run: |
-          npm install
-          npm run init
+    - name: npm install
+      run: npm install
 
-      - name: Build APK
-        run: |
-          npm run build -- Debug --target_os=android --target_arch=arm64 --target_android_output_format=apk --target_android_base=mono
+    - name: Configure Android ARM64 build
+      run: |
+        npm config set target_os android
+        npm config set target_arch arm64
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: BraveBrowser-arm64.apk
-          path: src/out/android/arm64/apks/BraveBrowser.apk
+    # Initialize the build environment (downloads Chromium)
+    - name: Initialize build
+      run: npm run init
+
+    # Build Release APK
+    - name: Build Release
+      run: npm run build Release
+
+    # Find the generated APK (adjust path if different)
+    - name: Locate APK
+      id: find-apk
+      run: |
+        APK_PATH=$(find ./out/android_arm64/Release -name "*.apk" -print -quit)
+        echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+        echo "APK found at: $APK_PATH"
+
+    # Upload to GitHub Release
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      if: ${{ github.event_name == 'release' }}
+      with:
+        files: ${{ env.APK_PATH }}
+        tag_name: ${{ github.ref }}
