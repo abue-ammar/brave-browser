@@ -1,76 +1,40 @@
-name: Build Brave Android ARM64
+name: Build Brave Browser APK (arm64)
 
 on:
   push:
-    branches: [master]
-
-env:
-  NODE_VERSION: 20
-  ANDROID_NDK_VERSION: 25.2.9519653
+    branches:
+      - master  # Or your target branch
+  pull_request:
+    branches:
+      - master # Or your target branch
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Install core dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          git \
-          python3 \
-          python3-pip \
-          python3-venv \
-          lsb-release \
-          curl \
-          unzip
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'  # Ensure Node.js v20 is used
 
-        # Create and use virtual environment
-        python3 -m venv .venv
-        source .venv/bin/activate
-        python -m pip install --upgrade pip setuptools wheel
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-distutils
+          npm install
 
-    - name: Install Chromium build dependencies
-      run: |
-        source .venv/bin/activate
-        yes | sudo ./src/build/install-build-deps.sh --android --arm --unsupported
-      env:
-        CHROME_DEVEL_SANDBOX: /usr/local/sbin/chrome-devel-sandbox
+      - name: Initialize the repo
+        run: npm run init -- --target_os=android --target_arch=arm
 
-    - name: Set up Android SDK/NDK
-      uses: android-actions/setup-android@v3
-      with:
-        ndk-version: ${{ env.ANDROID_NDK_VERSION }}
-        sdk-platform: android-34
+      - name: Build APK (Release)
+        run: npm run build -- --target_os=android --target_arch=arm Release
 
-    - name: npm install
-      run: npm install
-      working-directory: ./src/brave
-
-    - name: Configure build
-      run: |
-        npm config set target_os android
-        npm config set target_arch arm64
-      working-directory: ./src/brave
-
-    - name: Initialize build
-      run: npm run init -- --target_os=android --target_arch=arm64
-      working-directory: ./src/brave
-
-    - name: Build Release
-      run: npm run build Release
-      working-directory: ./src/brave
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: brave-arm64-release
-        path: |
-          src/brave/out/android_arm64/Release/apks/*.apk
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: brave-arm64-apk
+          path: path-to-your-apk-output-folder/*.apk  # Adjust path if needed
