@@ -2,9 +2,9 @@ name: Build Brave Browser APK
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build:
@@ -21,29 +21,22 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip git wget unzip
+          sudo apt-get install -y python3 python3-pip git wget unzip build-essential python3-distutils
           sudo pip3 install --upgrade pip
           sudo pip3 install depot_tools
 
-      - name: Fetch Brave Browser Source
+      - name: Initialize Brave Environment
         run: |
-          git clone https://github.com/brave/brave-browser.git src/brave
-          cd src/brave
-          git checkout master
-          cd ../..
-          gclient sync --no-history
+          npm install
+          npm run init
 
       - name: Build APK
         run: |
-          cd src/brave
-          npm install
-          cd ../../
-          gn gen out/Default --args='target_os="android" target_cpu="arm64" is_debug=false'
-          ninja -C out/Default chrome_public_apk
+          npm run build -- Debug --target_os=android --target_arch=arm64 --target_android_output_format=apk --target_android_base=mono
 
       - name: Upload APK
         uses: actions/upload-artifact@v2
         with:
           name: BraveBrowser-arm64.apk
-          path: src/out/Default/apks/BraveBrowser.apk
+          path: src/out/android/arm64/apks/BraveBrowser.apk
           
