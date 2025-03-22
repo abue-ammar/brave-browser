@@ -1,19 +1,17 @@
-name: Build and Release Brave Android ARM64
+name: Build Brave Android ARM64
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
 
 env:
-  NODE_VERSION: 20 # Matches package.json engines requirement
-  ANDROID_SDK_TOOLS_VERSION: 9477386 # Latest stable version
+  NODE_VERSION: 20
   ANDROID_NDK_VERSION: 25.2.9519653
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # May need to increase based on build time
+    timeout-minutes: 360
 
     steps:
     - name: Checkout repository
@@ -27,63 +25,55 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
-    - name: Install system dependencies
+    - name: Install core dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
+          build-essential \
+          git \
           python3 \
-          python3-pip \
-          ninja-build \
-          pkg-config \
-          clang \
-          libc++-dev \
-          libc++abi-dev \
-          libssl-dev \
-          libncurses6 \
-          libncurses-dev \
-          libncurses5-dev:i386
+          python3-distutils \
+          python3-setuptools \
+          lsb-release \
+          curl \
+          unzip
 
-    - name: Set up Android SDK
+    - name: Set up depot_tools
+      run: |
+        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        echo "$GITHUB_WORKSPACE/depot_tools" >> $GITHUB_PATH
+
+    - name: Install Chromium build dependencies
+      run: |
+        yes | sudo ./src/build/install-build-deps.sh --android --arm
+
+    - name: Set up Android SDK/NDK
       uses: android-actions/setup-android@v3
       with:
         ndk-version: ${{ env.ANDROID_NDK_VERSION }}
         sdk-platform: android-34
-        cmake-version: 3.22.1
 
     - name: npm install
       run: npm install
       working-directory: ./src/brave
 
-    - name: Configure Android ARM64 build
+    - name: Configure build
       run: |
         npm config set target_os android
         npm config set target_arch arm64
       working-directory: ./src/brave
 
-    - name: Initialize build environment
+    - name: Initialize build
       run: npm run init -- --target_os=android --target_arch=arm64
       working-directory: ./src/brave
-      env:
-        DEPOT_TOOLS_WIN_TOOLCHAIN: 0
 
-    - name: Run Release build
-      run: npm run build -- Release
-      working-directory: ./src/brave
-      env:
-        ANDROID_HOME: ${{ env.ANDROID_HOME }}
-        ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-
-    - name: Find APK artifact
-      id: find-apk
-      run: |
-        APK_PATH=$(find ./out/android_arm64/Release/apks -name "Brave*.apk" -print -quit)
-        echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
-        echo "Found APK at: $APK_PATH"
+    - name: Build Release
+      run: npm run build Release
       working-directory: ./src/brave
 
-    - name: Upload Release Asset
-      uses: softprops/action-gh-release@v1
-      if: ${{ github.event_name == 'release' }}
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
       with:
-        files: ${{ env.APK_PATH }}
-        tag_name: ${{ github.ref }}
+        name: brave-arm64-release
+        path: |
+          src/brave/out/android_arm64/Release/apks/*.apk
