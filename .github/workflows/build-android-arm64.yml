@@ -38,8 +38,10 @@ jobs:
           clang \
           libc++-dev \
           libc++abi-dev \
-          libncurses5 \
-          libssl-dev
+          libssl-dev \
+          libncurses6 \
+          libncurses-dev \
+          libncurses5-dev:i386
 
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
