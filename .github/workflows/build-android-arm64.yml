@@ -35,7 +35,7 @@ jobs:
           npm run build -- Debug --target_os=android --target_arch=arm64 --target_android_output_format=apk --target_android_base=mono
 
       - name: Upload APK
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: BraveBrowser-arm64.apk
           path: src/out/android/arm64/apks/BraveBrowser.apk
