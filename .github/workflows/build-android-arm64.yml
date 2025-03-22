@@ -6,7 +6,7 @@ on:
       - master  # Or your target branch
   pull_request:
     branches:
-      - master # Or your target branch
+      - master  # Or your target branch
 
 jobs:
   build:
@@ -36,5 +36,5 @@ jobs:
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v2
         with:
-          name: brave-arm64-apk
+          name: brave-arm64-apk  # Removed the URL
           path: path-to-your-apk-output-folder/*.apk  # Adjust path if needed
