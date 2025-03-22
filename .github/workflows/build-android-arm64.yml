@@ -32,17 +32,22 @@ jobs:
           build-essential \
           git \
           python3 \
-          python3-distutils \
-          python3-setuptools \
+          python3-venv \
+          python3-pip \
           lsb-release \
           curl \
           unzip
+        
+        # Set up Python tools
+        python3 -m ensurepip --upgrade
+        python3 -m pip install --upgrade pip setuptools wheel
 
-    - name: Set up depot_tools
+    - name: Install Chromium build dependencies
       run: |
-        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-        echo "$GITHUB_WORKSPACE/depot_tools" >> $GITHUB_PATH
-
+        yes | sudo ./src/build/install-build-deps.sh --android --arm --unsupported
+      env:
+        CHROME_DEVEL_SANDBOX: /usr/local/sbin/chrome-devel-sandbox
+        
     - name: Install Chromium build dependencies
       run: |
         yes | sudo ./src/build/install-build-deps.sh --android --arm
